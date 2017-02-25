@@ -14,13 +14,17 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 #include <fstream>
+
 #include <istream>
 #include <iostream>
 #include <stdio.h>
 
-IplImage* frame = 0;
+using namespace std;
 
-void fill(IplImage* src, CvPoint seed, CvScalar color = CV_RGB(255, 0, 0))
+IplImage* frame = 0;
+ofstream f;
+
+double fill(IplImage* src, CvPoint seed, CvScalar color = CV_RGB(255, 0, 0))
 {
 	assert(src);
 
@@ -35,15 +39,9 @@ void fill(IplImage* src, CvPoint seed, CvScalar color = CV_RGB(255, 0, 0))
 
 	// покажем площадь заливки
 	printf("[filled area] %.2f\n", comp.area);
-	//fprintf()
-	FILE* f;
-	if ((f = fopen("1.txt", "wb+")) == NULL) {
-		printf("ne otkrivaetcya");
-		exit(1);
-	}
-	fwrite(&comp.area, sizeof(comp.area), 1, f); 
-	fclose(f);
-	f = NULL;
+
+	return comp.area;
+
 }
 
 int main(int argc, char* argv[])
@@ -59,6 +57,8 @@ int main(int argc, char* argv[])
 	// получаем информацию о видео-файле
 	CvCapture* capture = cvCreateFileCapture(filename);
 
+	f.open("1.txt");
+
 	while (1) {
 		// получаем следующий кадр
 		frame = cvQueryFrame(capture);
@@ -71,7 +71,10 @@ int main(int argc, char* argv[])
 		cvSetImageROI(frame, cvRect(210, 479, 210, 120));
 		cvAddS(frame, cvScalar(200), frame);
 		cvResetImageROI(frame);
-		fill(frame, cvPoint(320, 479), CV_RGB(250, 0, 0));
+
+
+		f << fill(frame, cvPoint(320, 479), CV_RGB(250, 0, 0))   << sizeof(double) << endl;
+		//fwrite(&fill, sizeof(fill), 1, f); 
 
 
 		// показываем кадр
@@ -82,7 +85,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-
+	f.close();
 
 	// освобождаем ресурсы
 	cvReleaseCapture(&capture);

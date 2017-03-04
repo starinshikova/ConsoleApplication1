@@ -42,7 +42,7 @@ double fill(IplImage* src, CvPoint seed, CvScalar color = CV_RGB(255, 0, 0))
 	// покажем площадь заливки
   	//printf("[filled area] %.2f\n", comp.area);
 
-	return comp.area;
+   	return comp.area;
 
 }
 
@@ -55,10 +55,50 @@ inline bool isBlack(int x, uint8_t *row)
 	return ((b*0.0722 + g*0.7152 + r*0.2126) < 60);
 }
 
+int center_line(IplImage* src, int x, int y, int width) 
+{
+	assert(src);
+	int blDotX3 = 0, blDotX4 = 0, XROI = 0, Xco2 = 0, count = 0;
+	uint8_t *row2;
+	Mat orig;
+	//dst = cvCloneImage(frame);
+
+	//set the ROI in copy image (like temp image for finding center of black line)
+	//int yt = 639 - heightROI;
+	cvSetImageROI(src, cvRect(x, y, width, 2));
+
+	//convert image to matrix
+	orig = cvarrToMat(src);
+
+	//save the row from matrix with x=44
+	row2 = (uint8_t*)orig.ptr<uint8_t>(1);
+
+	//set the starting point of searching black point in bottom line of ROI
+	blDotX3 = 0;
+	blDotX4 = width-1;
+
+	//finding black point from the left (from 0 to ..+)
+	while (!isBlack(blDotX3, row2))
+	{
+		blDotX3++;
+	}
+
+	//finding black point from the right (from 200 to ...-)
+	while (!isBlack(blDotX4, row2))
+	{
+		blDotX4--;
+	}
+
+	// center of black line
+	return x+(blDotX3 + blDotX4) / 2;
+
+}
+
+
 int main(int argc, char* argv[])
 {
 	// имя файла задаётся первым параметром
-	char* filename = "n14.avi";
+	char* filename = "p3.avi";
 
 	printf("[i] file: %s\n", filename);
 
@@ -71,15 +111,15 @@ int main(int argc, char* argv[])
 	f.open("1.txt");
 
 
-	int x = argc >= 3 ? atoi(argv[2]) : 200;
-	int y = argc >= 4 ? atoi(argv[3]) : 434;
-	int width = argc >= 5 ? atoi(argv[4]) : 300;
-	int height = argc >= 6 ? atoi(argv[5]) : 45;
-	int add = argc >= 7 ? atoi(argv[6]) : 400;
-	double area1=0, area2=0, dif=0, proc=0;
-	Mat orig;
-	int blDotX3 = 0, blDotX4 = 0, Xco = 0, Xco2 = 0, count = 0;
-	uint8_t *row2;
+	int x = argc >= 3 ? atoi(argv[2]) : 170;
+	int y = argc >= 4 ? atoi(argv[3]) : 420;
+	int widthROI = argc >= 5 ? atoi(argv[4]) : 260;
+	int heightROI = argc >= 6 ? atoi(argv[5]) : 40;
+	//int add = argc >= 7 ? atoi(argv[6]) : 400;
+	double area1=0, area2=0, dif=0, proc=0, area2l=0, area2r=0;
+
+	int XROI = 0, Xco2 = 0, count = 0;
+	//uint8_t *row2;
 
 	while (1) {
 		// получаем следующий кадр
@@ -90,80 +130,63 @@ int main(int argc, char* argv[])
 
 		// здесь можно вставить
 		// процедуру обработки
-		dst = cvCloneImage(frame);
 
-		//set the ROI in copy image (like temp image for finding center of black line)
-		cvSetImageROI(dst, cvRect(x, y, width, height));
+		XROI = center_line(frame, x, y+heightROI, widthROI) - widthROI/2;
+		//XROI = x + Xco2 - widthROI / 2;
 
-		//convert image to matrix
-		orig = cvarrToMat(dst);
-
-		//save the row from matrix with x=44
-		row2 = (uint8_t*)orig.ptr<uint8_t>(44);
-		
-		//set the starting point of searching black point in bottom line of ROI
-		blDotX3 = 0;
-		blDotX4 = 200;
-
-		//finding black point from the left (from 0 to ..+)
-		while (!isBlack(blDotX3, row2))
-		{
-			blDotX3++;
+		if (XROI > 639-widthROI) {
+			XROI = 639 - widthROI;
 		}
 
-		//finding black point from the right (from 200 to ...-)
-		while (!isBlack(blDotX4, row2))
-		{
-			blDotX4--;
-		}
-
-		// center of black line
-		Xco2 = (blDotX3 + blDotX4) / 2;
-
-		//printf("[x center] %.2u\n", Xco2);
-		if (count == 0) {
-			x += (int)Xco2 - 57; count++;
-		}
-
-		//set image ROI
-		cvSetImageROI(frame, cvRect(x + Xco2-width/2, 435, 200, 45));
-
+		//ustanovim ROI
+		cvSetImageROI(frame, cvRect(XROI, y, widthROI, heightROI));
 		//color ROI in blue
-     	cvAddS(frame, cvScalar(200), frame);
-
-		//reset ROI
-		cvResetImageROI(frame);
+		//cvAddS(frame, cvScalar(200), frame);
 
 		//calculate and fill with red area in black line from center of black line
-		area2 = fill(frame, cvPoint(x + Xco2, 479), CV_RGB(250, 0, 0));
+		CvConnectedComp comp;
+
+		cvFloodFill(frame, cvPoint(10, heightROI-1), CV_RGB(255, 0, 0),
+			cvScalarAll(50), // минимальная разность
+			cvScalarAll(50), // максимальная разность
+			&comp,
+			CV_FLOODFILL_FIXED_RANGE + 8,
+			0);
+		area2l = comp.area;
+
+		cvFloodFill(frame, cvPoint(widthROI-10, heightROI - 1), CV_RGB(0, 255, 0),
+			cvScalarAll(50), // минимальная разность
+			cvScalarAll(50), // максимальная разность
+			&comp,
+			CV_FLOODFILL_FIXED_RANGE + 8,
+			0);
+		//reset ROI
+		cvResetImageROI(frame);
+		area2r = comp.area;
+
+		area2 = area2l + area2r;
 
 		//if we have first frame of video
-		if (count == 1) {
-			area1=area2; count++;
+		if (count == 0) {
+			area1 = area2; count++;
 		}
 
 		//calculating diffarance
-		dif = fabs(area2 - area1);
-		proc = dif / area2 * 100;
-
-		//write in file f
-		f << dif  << sizeof(double) << endl;
-		f << area1 << sizeof(double) << endl;
-		f << area2 << sizeof(double) << endl;
-		f << proc << sizeof(double) << endl;
-
-		printf("[area1] %.2f\n", area1);
-		printf("[area2] %.2f\n", area2);
-		printf("[differance area] %.2f\n", dif);
-		printf("[differance area in proc] %.2f\n", proc);
+		proc = fabs(area2 - area1) / area2 * 100;
 
 		area1 = area2;
-		x = x + Xco2 - width / 2;
+		x = XROI;
 
 		// показываем кадр
 		cvShowImage("original", frame);
 
-		char c = cvWaitKey(0);
+		if (proc > 2) {
+			printf("STOP");
+			char c = cvWaitKey(0);
+
+		}
+
+		char c = cvWaitKey(33);
 		if (c == 27) { // если нажата ESC - выходим
 			break;
 		}

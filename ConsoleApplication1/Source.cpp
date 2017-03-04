@@ -14,7 +14,7 @@
 #include <opencv2/videoio.hpp>
 #include <opencv2/highgui.hpp>
 #include <fstream>
-
+#include <time.h>  
 #include <istream>
 #include <iostream>
 #include <stdio.h>
@@ -23,7 +23,6 @@ using namespace cv;
 using namespace std;
 
 IplImage* frame = 0;
-ofstream f;
 IplImage* dst = 0;
 
 double fill(IplImage* src, CvPoint seed, CvScalar color = CV_RGB(255, 0, 0))
@@ -98,7 +97,7 @@ int center_line(IplImage* src, int x, int y, int width)
 int main(int argc, char* argv[])
 {
 	// имя файла задаётся первым параметром
-	char* filename = "p3.avi";
+	char* filename = "p12.avi";
 
 	printf("[i] file: %s\n", filename);
 
@@ -108,7 +107,7 @@ int main(int argc, char* argv[])
 	// получаем информацию о видео-файле
 	CvCapture* capture = cvCreateFileCapture(filename);
 
-	f.open("1.txt");
+	//f.open("1.txt");
 
 
 	int x = argc >= 3 ? atoi(argv[2]) : 170;
@@ -117,9 +116,9 @@ int main(int argc, char* argv[])
 	int heightROI = argc >= 6 ? atoi(argv[5]) : 40;
 	//int add = argc >= 7 ? atoi(argv[6]) : 400;
 	double area1=0, area2=0, dif=0, proc=0, area2l=0, area2r=0;
-
 	int XROI = 0, Xco2 = 0, count = 0;
-	//uint8_t *row2;
+	clock_t start, finish;
+	double  duration;
 
 	while (1) {
 		// получаем следующий кадр
@@ -130,6 +129,8 @@ int main(int argc, char* argv[])
 
 		// здесь можно вставить
 		// процедуру обработки
+
+		start = clock();
 
 		XROI = center_line(frame, x, y+heightROI, widthROI) - widthROI/2;
 		//XROI = x + Xco2 - widthROI / 2;
@@ -177,10 +178,14 @@ int main(int argc, char* argv[])
 		area1 = area2;
 		x = XROI;
 
+		finish = clock();
+		duration = (double)(finish - start) / CLOCKS_PER_SEC; 
+		printf("%2.3f seconds\n", duration);
+
 		// показываем кадр
 		cvShowImage("original", frame);
 
-		if (proc > 2) {
+		if (proc > 3) {
 			printf("STOP");
 			char c = cvWaitKey(0);
 
@@ -191,8 +196,7 @@ int main(int argc, char* argv[])
 			break;
 		}
 	}
-	f.close();
-
+	
 	// освобождаем ресурсы
 	cvReleaseCapture(&capture);
 	
